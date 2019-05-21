@@ -1,0 +1,28 @@
+{ "columns":0
+, "grid":
+    { "height":1
+    , "orientation":"orthogonal"
+    , "width":1
+    }
+, "margin":0
+, "name":"images"
+, "spacing":0
+, "tilecount":2
+, "tiledversion":"1.2.3"
+, "tileheight":320
+, "tiles":
+    [   { "id":0
+        , "image":"..\/..\/images\/stage4\/Background.png"
+        , "imageheight":320
+        , "imagewidth":768
+        }
+    ,   { "id":1
+        , "image":"..\/..\/images\/Pico.png"
+        , "imageheight":37
+        , "imagewidth":55
+        }
+    ]
+, "tilewidth":768
+, "type":"tileset"
+, "version":1.2
+}

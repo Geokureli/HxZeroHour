@@ -1,23 +1,24 @@
 package art;
 
+import flixel.effects.FlxFlicker;
+import flixel.math.FlxPoint;
 import data.BulletGroup as Gun;
 
-import flixel.FlxCamera.FlxCameraFollowStyle;
-import flixel.FlxObject;
-import flixel.input.gamepad.FlxGamepadInputID;
 import flixel.FlxG;
-import flixel.math.FlxVector;
-import flixel.group.FlxSpriteGroup;
+import flixel.FlxObject;
 import flixel.FlxSprite;
+import flixel.FlxCamera.FlxCameraFollowStyle;
+import flixel.math.FlxVector;
+import flixel.input.gamepad.FlxGamepadInputID;
 
-class Pico extends flixel.group.FlxSpriteGroup {
+class Pico extends GroupEntity {
     
     inline static var WALK_SPEED     = 200;
     inline static var DASH_SPEED     = 350;
     inline static var SPEED_UP_TIME  = 1 / 8;//seconds
     inline static var DASH_TIME      = 2.0;//seconds
     
-    inline static var GROUND         = 320 - 80 - 37;//pixels
+
     inline static var MAX_APEX_TIME  = .45;//seconds
     inline static var JUMP_MAX       = 100;//pixels
     inline static var JUMP_MIN       = 20;//pixels
@@ -43,7 +44,6 @@ class Pico extends flixel.group.FlxSpriteGroup {
     var _feet :FlxSprite;
     
     var _cameraTarget:FlxObject;
-    var _hitBox:FlxObject;
     
     var _jumpTimer = 0.0;
     var _dashLeft = DASH_TIME;
@@ -58,21 +58,18 @@ class Pico extends flixel.group.FlxSpriteGroup {
     var _lastShootDir = FlxVector.get();
     var _lastMoveDir = FlxVector.get();
     var _wasShooting = false;
+    var _lastGroundPos = FlxPoint.get();
     
     var _aimToShoot = true;
     
-    public function new () {
-        super();
+    public function new (x = 0.0, y = 0.0) {
+        super(x, y);
         
-        trace(MAX_APEX_TIME);
         add(_feet = new FlxSprite(13, 24, "assets/images/global/pico/Feet.png"));
         add(_scarf = new FlxSprite(0 , 14, "assets/images/global/pico/Scarf.png"));
         _scarf.origin.set(_scarf.width + 3, _scarf.height / 2);
         add(_torso = new FlxSprite(17, 0 , "assets/images/global/pico/Torso.png"));
         _torso.origin.set(13, 23);
-        
-        x = (FlxG.width  - width ) / 2;
-        y = (FlxG.height - height) / 2;
         
         acceleration.y = GRAVITY;
         maxVelocity.x = WALK_SPEED;
@@ -82,9 +79,11 @@ class Pico extends flixel.group.FlxSpriteGroup {
         
         _cameraTarget = new FlxObject(x, y, 1, 1);
         FlxG.camera.follow(_cameraTarget, FlxCameraFollowStyle.PLATFORMER, CAMERA_LERP);
+        FlxG.camera.focusOn(_cameraTarget.getPosition(FlxPoint.weak()));
         
-        _hitBox = new FlxObject(x + 20, y, 18, height);
-        solid = false;
+        width = 18;
+        height = groupHeight;
+        offset.x = 20;
         
         bullets = new Gun();
     }
@@ -92,18 +91,17 @@ class Pico extends flixel.group.FlxSpriteGroup {
     public function addDebugDrawObjects(group):Void {
         
         group.add(_cameraTarget);
-        group.add(_hitBox);
     }
     
     override function update(elapsed:Float) {
-        super.update(elapsed);
         
         var shootDir = FlxVector.get();
         var moveDir = FlxVector.get();
         var dashing = getIsDashing(elapsed);
-        getInput(shootDir, moveDir, dashing);
+        if (!FlxFlicker.isFlickering(this))
+            getInput(shootDir, moveDir, dashing);
         
-        _scarf.visible = dashing;
+        // _scarf.visible = dashing;
         var shooting = false;
         if (dashing) {
             
@@ -160,6 +158,7 @@ class Pico extends flixel.group.FlxSpriteGroup {
             scale.x = moveDir.x;
         
         _cameraTarget.x = _torso.x + _torso.width / 2 + scale.x * CAMERA_LEAD;
+        _cameraTarget.y = _torso.y;
         
         _torso.angle = aimDir.degrees;
         aimDir.put();
@@ -184,8 +183,6 @@ class Pico extends flixel.group.FlxSpriteGroup {
             
             velocity.copyFrom(moveDir.scale(DASH_SPEED));
             
-            _scarf.scale.x = scale.x * dashPercentLeft;
-            
         } else {
             
             if (_wasDashing) {
@@ -197,15 +194,11 @@ class Pico extends flixel.group.FlxSpriteGroup {
             
             acceleration.x = moveDir.x * drag.x;
             
-            if (y > GROUND) {
-                
-                y = GROUND;
-                if (velocity.y > 0)
-                    velocity.y = 0;
-            }
-            
-            var onGround = y == GROUND;
+            var onGround = isTouching(FlxObject.FLOOR);
             var jumpPress = moveDir.y < 0;
+            
+            if (onGround)
+                _lastGroundPos.set(x, y);
             
             if (!onGround && !jumpPress)
                 _jumpTimer = JUMP_MAX_TIME;
@@ -236,10 +229,20 @@ class Pico extends flixel.group.FlxSpriteGroup {
             }
         }
         
-        _wasDashing = dashing;
+        super.update(elapsed);
         
-        _hitBox.x = x + 20;
-        _hitBox.y = y;
+        if (y > FlxG.worldBounds.bottom)
+        {
+            x = _lastGroundPos.x;
+            y = _lastGroundPos.y - 10;
+            last.set(x, y);
+            velocity.set();
+            FlxFlicker.flicker(this, 0.5);
+            dashing = false;
+        }
+        
+        _scarf.scale.x = scale.x * dashPercentLeft;
+        _wasDashing = dashing;
         
         moveDir.put();
         shootDir.put();
@@ -343,6 +346,6 @@ class Pico extends flixel.group.FlxSpriteGroup {
         return _dashLeft / DASH_TIME;
     }
     
-    inline function get__gunPivotX():Float { return _torso.x + _torso.origin.x; }
-    inline function get__gunPivotY():Float { return _torso.y + _torso.origin.y; }
+    inline function get__gunPivotX():Float { return _torso.x + _torso.origin.x - _torso.offset.x; }
+    inline function get__gunPivotY():Float { return _torso.y + _torso.origin.y - _torso.offset.y; }
 }
