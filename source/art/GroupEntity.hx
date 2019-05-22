@@ -1,5 +1,6 @@
 package art;
 
+import flixel.FlxCamera;
 import flixel.util.FlxDestroyUtil;
 import flixel.FlxG;
 import flixel.FlxSprite;
@@ -20,10 +21,17 @@ class TypedGroupEntity<T:FlxSprite> extends FlxTypedSpriteGroup<T>
         collideAsSprite = true;
     }
     
+	#if FLX_DEBUG
     override function add(sprite:T):T
     {
         sprite.ignoreDrawDebug = true;
         return super.add(sprite);
+    }
+    #end
+    
+    override function getScreenPosition(?point:FlxPoint, ?Camera:FlxCamera):FlxPoint
+    {
+        return super.getScreenPosition(point, Camera);
     }
     
     public function get_groupWidth():Float
